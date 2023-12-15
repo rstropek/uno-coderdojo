@@ -1,0 +1,6 @@
+bin
+obj
+.dockerignore
+Dockerfile
+*.http
+*.sln

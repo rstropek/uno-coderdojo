@@ -1,6 +1,3 @@
-using System.Net.WebSockets;
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
@@ -66,7 +63,7 @@ app.MapPost("/games/{gameId}/start", (string gameId) =>
     return Results.Ok();
 });
 
-app.Use((Func<HttpContext, Func<Task>, Task>)(async (HttpContext context, Func<Task> next) =>
+app.Use(async (HttpContext context, Func<Task> next) =>
 {
     var match = RegularExpressions.JoinPath().Match(context.Request.Path);
     if (match.Success)
@@ -84,7 +81,7 @@ app.Use((Func<HttpContext, Func<Task>, Task>)(async (HttpContext context, Func<T
         }
     }
     await next();
-}));
+});
 
 app.Run();
 

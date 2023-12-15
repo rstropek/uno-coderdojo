@@ -13,4 +13,5 @@ record PublishMessage(
 
 [JsonSerializable(typeof(PlayerListChanged))]
 [JsonSerializable(typeof(PublishMessage))]
+[JsonSerializable(typeof(Message))]
 partial class MessagesSerializerContext : JsonSerializerContext { }

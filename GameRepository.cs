@@ -78,9 +78,12 @@ record Game(string Id, List<Player> Players)
     public async Task BroadcastPlayerListChanged()
     {
         var msg = new PlayerListChanged(Players.Select<Player, string>(player => player.Name).ToArray());
-        foreach (var otherPlayer in Players)
-        {
-            await otherPlayer.Send(msg, (JsonTypeInfo<PlayerListChanged>)MessagesSerializerContext.Default.PlayerListChanged);
-        }
+        await Broadcast(msg, MessagesSerializerContext.Default.PlayerListChanged);
+    }
+
+    public async Task BroadcastChatMessage(string from, string message)
+    {
+        var msg = new PublishMessage(from, message);
+        await Broadcast(msg, MessagesSerializerContext.Default.PublishMessage);
     }
 }

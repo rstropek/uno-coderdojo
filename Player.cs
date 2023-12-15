@@ -37,13 +37,18 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
 
     public async Task HandleMessage(string message)
     {
-        switch (message)
+
+        var typedMessage = JsonSerializer.Deserialize(message, MessagesSerializerContext.Default.Message);
+        if (typedMessage is null) { return; }
+
+        switch (typedMessage.Type)
         {
-            case "ping":
-                await Socket.SendAsync(Encoding.UTF8.GetBytes("pong"), WebSocketMessageType.Text, true, CancellationToken.None);
+            case nameof(PublishMessage):
+                var messageToPublish = JsonSerializer.Deserialize(message, MessagesSerializerContext.Default.PublishMessage);
+                if (messageToPublish is null) { return; }
+                await Game.BroadcastChatMessage(messageToPublish.Sender, messageToPublish.Message);
                 break;
-            case "need_status":
-                await SendStatus();
+            default:
                 break;
         }
     }

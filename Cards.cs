@@ -32,10 +32,11 @@ enum CardColor
 
 class Cards
 {
-    public List<Card> Deck { get; } = [];
+    public Stack<Card> Deck { get; } = [];
 
     public Cards()
     {
+        var deck = new List<Card>();
         for (var i = 0; i < 2; i++)
         {
             for (var ct = 0; ct <= (int)CardType.Nine; ct++)
@@ -43,7 +44,7 @@ class Cards
                 if (i == 1 && ct == (int)CardType.Zero) { continue; }
                 for (var cc = 0; cc <= (int)CardColor.Blue; cc++)
                 {
-                    Deck.Add(new Card((CardType)ct, (CardColor)cc));
+                    deck.Add(new Card((CardType)ct, (CardColor)cc));
                 }
             }
         }
@@ -60,16 +61,13 @@ class Cards
         {
             var a = Random.Shared.Next(Deck.Count);
             var b = Random.Shared.Next(Deck.Count);
-            (Deck[a], Deck[b]) = (Deck[b], Deck[a]);
+            (deck[a], deck[b]) = (deck[b], deck[a]);
         }
+
+        foreach (var card in deck) { Deck.Push(card); }
     }
 
-    public Card Draw()
-    {
-        var card = Deck[^1];
-        Deck.RemoveAt(Deck.Count - 1);
-        return card;
-    }
+    public Card Draw() => Deck.Pop();
 }
 
 record Card(CardType Type, CardColor Color);

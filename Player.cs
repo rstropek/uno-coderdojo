@@ -78,6 +78,28 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
                 if (messageToPublish is null) { return; }
                 await Game.BroadcastChatMessage(messageToPublish.Sender, messageToPublish.Message);
                 break;
+            case nameof(DropCard):
+                var dropCardMessage = JsonSerializer.Deserialize(message, MessagesSerializerContext.Default.DropCard);
+                if (dropCardMessage is null) { return; }
+                var cardToDrop = Hand.FirstOrDefault(h => h == dropCardMessage.Card);
+                if (cardToDrop == null) { return; }
+                if (Game.DiscardPile!.Peek().Color != cardToDrop.Color && Game.DiscardPile.Peek().Type != cardToDrop.Type)
+                {
+                    return;
+                }
+                Hand.Remove(cardToDrop);
+                Game.DiscardPile!.Push(cardToDrop);
+                Game.CurrentPlayer = Game.Players[(Game.Players.IndexOf(this) + (int)Game.Direction) % Game.Players.Count];
+                await Game.BroadcastStatus();
+                await Game.BroadcastServerMessage($"{Name} dropped a {cardToDrop.Color} {cardToDrop.Type}");
+                break;
+            case nameof(TakeFromPile):
+                var card = Game.StackOfCards!.Draw();
+                Hand.Add(card);
+                Game.CurrentPlayer = Game.Players[(Game.Players.IndexOf(this) + (int)Game.Direction) % Game.Players.Count];
+                await Game.BroadcastStatus();
+                await Game.BroadcastServerMessage($"{Name} took a card from the pile");
+                break;
             default:
                 break;
         }
@@ -102,6 +124,7 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
             [.. Hand],
             Game.DiscardPile!.Peek(),
             Game.CurrentPlayer?.PlayerId,
+            Game.CurrentPlayer!.PlayerId == PlayerId,
             Game.Players
                 .Where(player => player != this)
                 .Select(player => new OtherPlayerStatusMessage(player.PlayerId, player.Name, player.Hand.Count))

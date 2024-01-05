@@ -39,6 +39,7 @@ enum GameStatus
     Finished
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<Direction>))]
 enum Direction
 {
     Down = -1,
@@ -49,7 +50,7 @@ record Game(string Id, List<Player> Players)
 {
     public Cards? StackOfCards { get; set; }
 
-    public Card[]? DiscardPile { get; set; }
+    public Stack<Card>? DiscardPile { get; set; }
 
     public Direction Direction { get; set; } = Direction.Up;
 
@@ -67,6 +68,12 @@ record Game(string Id, List<Player> Players)
         }
     }
 
+    public async Task BroadcastServerMessage(string message)
+    {
+        var msg = new PublishMessage("🤖", message);
+        await Broadcast(msg, MessagesSerializerContext.Default.PublishMessage);
+    }
+
     public async Task Broadcast<T>(T message, JsonTypeInfo<T> type)
     {
         foreach (var player in Players)
@@ -77,7 +84,7 @@ record Game(string Id, List<Player> Players)
 
     public async Task BroadcastPlayerListChanged()
     {
-        var msg = new PlayerListChanged(Players.Select<Player, string>(player => player.Name).ToArray());
+        var msg = new PlayerListChanged(Players.Select(player => player.Name).ToArray());
         await Broadcast(msg, MessagesSerializerContext.Default.PlayerListChanged);
     }
 

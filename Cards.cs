@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 
+[JsonConverter(typeof(JsonStringEnumConverter<CardType>))]
 enum CardType
 {
     Zero,
@@ -19,6 +20,7 @@ enum CardType
     WildDrawFour
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<CardColor>))]
 enum CardColor
 {
     Red,
@@ -36,7 +38,7 @@ class Cards
     {
         for (var i = 0; i < 2; i++)
         {
-            for (var ct = 0; ct <= (int)CardType.DrawTwo; ct++)
+            for (var ct = 0; ct <= (int)CardType.Nine; ct++)
             {
                 if (i == 1 && ct == (int)CardType.Zero) { continue; }
                 for (var cc = 0; cc <= (int)CardColor.Blue; cc++)

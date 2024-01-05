@@ -36,7 +36,7 @@ app.MapGet("/games/{gameId}", (string gameId) =>
     return Results.Ok();
 });
 
-app.MapPost("/games/{gameId}/start", (string gameId) =>
+app.MapPost("/games/{gameId}/start", async (string gameId) =>
 {
     if (!GameRepository.Games.TryGetValue(gameId, out var game))
     {
@@ -44,6 +44,11 @@ app.MapPost("/games/{gameId}/start", (string gameId) =>
     }
 
     if (game.Status != GameStatus.WaitingForPlayers)
+    {
+        return Results.Forbid();
+    }
+
+    if (game.Players.Count < 2)
     {
         return Results.BadRequest();
     }
@@ -59,28 +64,66 @@ app.MapPost("/games/{gameId}/start", (string gameId) =>
     game.Status = GameStatus.InProgress;
     game.Direction = Direction.Up;
 
-    game.DiscardPile = [game.StackOfCards.Draw()];
+    game.DiscardPile = new([game.StackOfCards.Draw()]);
+
+    await game.BroadcastStatus();
+    await game.BroadcastServerMessage("Und los geht's, die Karten sind gemischt.");
+    await game.BroadcastServerMessage($"Als erstes ist {game.CurrentPlayer.Name} dran, viel Glück 🍀!");
+
     return Results.Ok();
 });
 
-app.Use(async (HttpContext context, Func<Task> next) =>
+app.MapPost("/games/{gameId}/broadcastStatus", async (string gameId) =>
+{
+    if (!GameRepository.Games.TryGetValue(gameId, out var game))
+    {
+        return Results.NotFound();
+    }
+
+    if (game.Status != GameStatus.InProgress)
+    {
+        return Results.Forbid();
+    }
+
+    await game.BroadcastStatus();
+
+    return Results.Ok();
+});
+
+app.Use(async (HttpContext context, RequestDelegate next) =>
 {
     var match = RegularExpressions.JoinPath().Match(context.Request.Path);
-    if (match.Success)
+    if (match.Success && context.WebSockets.IsWebSocketRequest)
     {
-        if (context.WebSockets.IsWebSocketRequest
-            && GameRepository.Games.TryGetValue(match.Groups[1].Value, out Game? game)
-            && context.Request.Query.TryGetValue("name", out var name))
+        if (!GameRepository.Games.TryGetValue(match.Groups[1].Value, out Game? game))
         {
-            var websocket = await context.WebSockets.AcceptWebSocketAsync();
-            var player = new Player(game, websocket, name!);
-            game.Players.Add(player);
-            await game.BroadcastPlayerListChanged();
-
-            await player.ListeningLoop();
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
         }
+
+        if (game.Status != GameStatus.WaitingForPlayers)
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
+        if (!context.Request.Query.TryGetValue("name", out var name))
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        var websocket = await context.WebSockets.AcceptWebSocketAsync();
+        var player = new Player(game, websocket, name!);
+        game.Players.Add(player);
+        await game.BroadcastPlayerListChanged();
+
+        var log = app.Services.GetRequiredService<ILogger<Program>>();
+        await player.ListeningLoop(log);
+        return;
     }
-    await next();
+
+    await next(context);
 });
 
 app.Run();

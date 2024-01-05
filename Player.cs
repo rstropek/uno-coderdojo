@@ -92,6 +92,7 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
                 Game.CurrentPlayer = Game.Players[(Game.Players.IndexOf(this) + (int)Game.Direction) % Game.Players.Count];
                 await Game.BroadcastStatus();
                 await Game.BroadcastServerMessage($"{Name} dropped a {cardToDrop.Color} {cardToDrop.Type}");
+                await Game.BroadcastServerMessage($"It is now {Game.CurrentPlayer.Name}'s turn");
                 break;
             case nameof(TakeFromPile):
                 var card = Game.StackOfCards!.Draw();
@@ -99,6 +100,7 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
                 Game.CurrentPlayer = Game.Players[(Game.Players.IndexOf(this) + (int)Game.Direction) % Game.Players.Count];
                 await Game.BroadcastStatus();
                 await Game.BroadcastServerMessage($"{Name} took a card from the pile");
+                await Game.BroadcastServerMessage($"It is now {Game.CurrentPlayer.Name}'s turn");
                 break;
             default:
                 break;

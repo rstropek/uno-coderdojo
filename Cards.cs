@@ -57,7 +57,7 @@ class Cards
         // }
 
         // Shuffle
-        for (var i = 0; i < 2000; i++)
+        for (var i = 0; i < 20000; i++)
         {
             var a = Random.Shared.Next(Deck.Count);
             var b = Random.Shared.Next(Deck.Count);

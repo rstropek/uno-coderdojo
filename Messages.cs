@@ -11,6 +11,13 @@ record PublishMessage(
     string Message
 ) : Message(nameof(PublishMessage));
 
+record WinnerMessage(
+    string WinnerId,
+    string WinnerName
+) : Message(nameof(WinnerMessage));
+
+record StartMessage() : Message(nameof(StartMessage));
+
 record OtherPlayerStatusMessage(
     string PlayerId,
     string Name,
@@ -41,4 +48,5 @@ record TakeFromPile() : Message(nameof(TakeFromPile));
 [JsonSerializable(typeof(Ping))]
 [JsonSerializable(typeof(DropCard))]
 [JsonSerializable(typeof(TakeFromPile))]
+[JsonSerializable(typeof(WinnerMessage))]
 partial class MessagesSerializerContext : JsonSerializerContext { }

@@ -36,43 +36,6 @@ app.MapGet("/games/{gameId}", (string gameId) =>
     return Results.Ok();
 });
 
-app.MapPost("/games/{gameId}/start", async (string gameId) =>
-{
-    if (!GameRepository.Games.TryGetValue(gameId, out var game))
-    {
-        return Results.NotFound();
-    }
-
-    if (game.Status != GameStatus.WaitingForPlayers)
-    {
-        return Results.Forbid();
-    }
-
-    if (game.Players.Count < 2)
-    {
-        return Results.BadRequest();
-    }
-
-    game.StackOfCards = new Cards();
-    foreach (var player in game.Players)
-    {
-        player.Hand.Clear();
-        for (var i = 0; i < 7; player.Hand.Add(game.StackOfCards.Draw()), i++) ;
-    }
-
-    game.CurrentPlayer = game.Players[Random.Shared.Next(game.Players.Count)];
-    game.Status = GameStatus.InProgress;
-    game.Direction = Direction.Up;
-
-    game.DiscardPile = new([game.StackOfCards.Draw()]);
-
-    await game.BroadcastStatus();
-    await game.BroadcastServerMessage("Und los geht's, die Karten sind gemischt.");
-    await game.BroadcastServerMessage($"Als erstes ist {game.CurrentPlayer.Name} dran, viel Glück 🍀!");
-
-    return Results.Ok();
-});
-
 app.MapPost("/games/{gameId}/broadcastStatus", async (string gameId) =>
 {
     if (!GameRepository.Games.TryGetValue(gameId, out var game))
@@ -101,7 +64,7 @@ app.Use(async (HttpContext context, RequestDelegate next) =>
             return;
         }
 
-        if (game.Status != GameStatus.WaitingForPlayers)
+        if (game.Status != GameStatus.WaitingForPlayers || game.Players.Count >= 4)
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;
@@ -115,6 +78,11 @@ app.Use(async (HttpContext context, RequestDelegate next) =>
 
         var websocket = await context.WebSockets.AcceptWebSocketAsync();
         var player = new Player(game, websocket, name!);
+        if (game.Players.Count == 0)
+        {
+            game.Host = player;
+        }
+
         game.Players.Add(player);
         await game.BroadcastPlayerListChanged();
 

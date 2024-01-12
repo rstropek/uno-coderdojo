@@ -55,8 +55,16 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
         }
         else if (Game.Players.Remove(this))
         {
+            if (Game.CurrentPlayer == this && Game.Players.Count > 0)
+            {
+                Game.CurrentPlayer = Game.Players[(Game.Players.IndexOf(this) + (int)Game.Direction) % Game.Players.Count];
+            }
+
             log.LogInformation("Removed player {Name} ({PlayerId})", Name, PlayerId);
             await Game.BroadcastPlayerListChanged();
+            if (Game.Status == GameStatus.InProgress) {
+                await Game.BroadcastStatus();
+            }
         }
 
         if (Socket.State == WebSocketState.Open)
@@ -78,7 +86,38 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
                 if (messageToPublish is null) { return; }
                 await Game.BroadcastChatMessage(messageToPublish.Sender, messageToPublish.Message);
                 break;
+            case nameof(StartMessage):
+                if (Game.Status != GameStatus.WaitingForPlayers) { break; }
+                if (Game.Players.Count < 2) 
+                { 
+                    await Game.BroadcastServerMessage("Das Spiel kann noch nicht gestartet werden, es müssen mindestens zwei SpielerInnen dabei sein.");
+                    break;
+                }
+                if (Game.Host != this)
+                {
+                    await Game.BroadcastServerMessage($"{Name}, nur der Host kann das Spiel starten. {Game.Host?.Name}, {Name} möchte, dass das Spiel gestartet wird.");
+                    break;
+                }
+
+                Game.StackOfCards = new Cards();
+                foreach (var player in Game.Players)
+                {
+                    player.Hand.Clear();
+                    for (var i = 0; i < 7; player.Hand.Add(Game.StackOfCards.Draw()), i++) ;
+                }
+
+                Game.CurrentPlayer = Game.Players[Random.Shared.Next(Game.Players.Count)];
+                Game.Status = GameStatus.InProgress;
+                Game.Direction = Direction.Up;
+
+                Game.DiscardPile = new([Game.StackOfCards.Draw()]);
+
+                await Game.BroadcastStatus();
+                await Game.BroadcastServerMessage("Und los geht's, die Karten sind gemischt.");
+                await Game.BroadcastServerMessage($"Als erstes ist {Game.CurrentPlayer.Name} dran, viel Glück 🍀!");
+                break;
             case nameof(DropCard):
+                if (Game.Status != GameStatus.InProgress) { break; }
                 var dropCardMessage = JsonSerializer.Deserialize(message, MessagesSerializerContext.Default.DropCard);
                 if (dropCardMessage is null) { return; }
                 var cardToDrop = Hand.FirstOrDefault(h => h == dropCardMessage.Card);
@@ -87,20 +126,30 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
                 {
                     return;
                 }
+
                 Hand.Remove(cardToDrop);
+                if (Hand.Count == 0)
+                {
+                    await Game.Broadcast(new WinnerMessage(PlayerId, Name), MessagesSerializerContext.Default.WinnerMessage);
+                    await Game.BroadcastServerMessage($"Wir haben einen GEWINNER 🏆🥇: {this.Name}!");
+                    Game.Status = GameStatus.Finished;
+                    break;
+                }
+
                 Game.DiscardPile!.Push(cardToDrop);
                 Game.CurrentPlayer = Game.Players[(Game.Players.IndexOf(this) + (int)Game.Direction) % Game.Players.Count];
                 await Game.BroadcastStatus();
-                await Game.BroadcastServerMessage($"{Name} dropped a {cardToDrop.Color} {cardToDrop.Type}");
-                await Game.BroadcastServerMessage($"It is now {Game.CurrentPlayer.Name}'s turn");
+                await Game.BroadcastServerMessage($"{Name} hat eine {Card.CardTypeToString(cardToDrop.Type)} {Card.CardColorToString(cardToDrop.Color)} abgelegt.");
+                await Game.BroadcastServerMessage($"Jetzt ist {Game.CurrentPlayer.Name} dran");
                 break;
             case nameof(TakeFromPile):
+                if (Game.Status != GameStatus.InProgress) { break; }
                 var card = Game.StackOfCards!.Draw();
                 Hand.Add(card);
                 Game.CurrentPlayer = Game.Players[(Game.Players.IndexOf(this) + (int)Game.Direction) % Game.Players.Count];
                 await Game.BroadcastStatus();
-                await Game.BroadcastServerMessage($"{Name} took a card from the pile");
-                await Game.BroadcastServerMessage($"It is now {Game.CurrentPlayer.Name}'s turn");
+                await Game.BroadcastServerMessage($"{Name} nimmt eine Karte vom Stapel");
+                await Game.BroadcastServerMessage($"Jetzt ist {Game.CurrentPlayer.Name} dran");
                 break;
             default:
                 break;

@@ -70,7 +70,44 @@ class Cards
     public Card Draw() => Deck.Pop();
 }
 
-record Card(CardType Type, CardColor Color);
+record Card(CardType Type, CardColor Color)
+{
+    public static string CardTypeToString(CardType type)
+    {
+        return type switch 
+        {
+            CardType.Zero => "0",
+            CardType.One => "1",
+            CardType.Two => "2",
+            CardType.Three => "3",
+            CardType.Four => "4",
+            CardType.Five => "5",
+            CardType.Six => "6",
+            CardType.Seven => "7",
+            CardType.Eight => "8",
+            CardType.Nine => "9",
+            CardType.Skip => "Aussetzen",
+            CardType.Reverse => "Umdrehen",
+            CardType.DrawTwo => "Nimm Zwei",
+            CardType.Wild => "Wild",
+            CardType.WildDrawFour => "Nimm Vier",
+            _ => throw new NotImplementedException()
+        };
+    }
+
+    public static string CardColorToString(CardColor color)
+    {
+        return color switch 
+        {
+            CardColor.Red => "Rot",
+            CardColor.Yellow => "Gelb",
+            CardColor.Green => "Grün",
+            CardColor.Blue => "Blau",
+            CardColor.Wild => "Wild",
+            _ => throw new NotImplementedException()
+        };
+    }
+}
 
 [JsonSerializable(typeof(Card))]
 partial class CardSerializerContext : JsonSerializerContext { }

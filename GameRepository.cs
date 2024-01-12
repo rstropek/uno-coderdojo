@@ -58,6 +58,8 @@ record Game(string Id, List<Player> Players)
 
     public Player? CurrentPlayer { get; set; }
 
+    public Player? Host { get; set; }
+
     public Game(string id) : this(id, []) { }
 
     public async Task BroadcastStatus()
@@ -94,3 +96,5 @@ record Game(string Id, List<Player> Players)
         await Broadcast(msg, MessagesSerializerContext.Default.PublishMessage);
     }
 }
+
+record Move(string PlayerId, Card Card);

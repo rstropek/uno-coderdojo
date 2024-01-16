@@ -2,13 +2,13 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
 
-partial class GameRepository(ILogger<GameRepository> logger)
+partial class GameRepository(ILogger<GameRepository> logger, GameFactory gameFactory)
 {
     private readonly ConcurrentDictionary<string, Game> Games = [];
 
     public Game CreateGame()
     {
-        var game = new Game();
+        var game = gameFactory.CreateGame();
         Debug.Assert(Games.TryAdd(game.Id, game));
         return game;
     }
@@ -28,6 +28,14 @@ partial class GameRepository(ILogger<GameRepository> logger)
                     LogPlayerNotFound(logger, game.Id);
                 }
             }
+        }
+    }
+
+    public void EndAllConnections()
+    {
+        foreach (var game in Games.Values)
+        {
+            game.EndAllConnections();
         }
     }
 

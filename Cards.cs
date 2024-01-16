@@ -4,16 +4,7 @@ using System.Text.Json.Serialization;
 [JsonConverter(typeof(JsonStringEnumConverter<CardType>))]
 enum CardType
 {
-    Zero,
-    One,
-    Two,
-    Three,
-    Four,
-    Five,
-    Six,
-    Seven,
-    Eight,
-    Nine,
+    Zero, One, Two, Three, Four, Five, Six, Seven, Eight, Nine,
     // To keep things simple, we current do not support special cards.
     // Skip,
     // Reverse,
@@ -25,11 +16,8 @@ enum CardType
 [JsonConverter(typeof(JsonStringEnumConverter<CardColor>))]
 enum CardColor
 {
-    Red,
-    Yellow,
-    Green,
-    Blue,
-    Wild
+    Red, Yellow, Green, Blue,
+    // Wild
 }
 
 class Cards
@@ -74,7 +62,7 @@ record Card(CardType Type, CardColor Color)
 {
     public static string CardTypeToString(CardType type)
     {
-        return type switch 
+        return type switch
         {
             CardType.Zero => "0",
             CardType.One => "1",
@@ -97,13 +85,13 @@ record Card(CardType Type, CardColor Color)
 
     public static string CardColorToString(CardColor color)
     {
-        return color switch 
+        return color switch
         {
             CardColor.Red => "Rot",
             CardColor.Yellow => "Gelb",
             CardColor.Green => "Grün",
             CardColor.Blue => "Blau",
-            CardColor.Wild => "Wild",
+            //CardColor.Wild => "Wild",
             _ => throw new NotImplementedException()
         };
     }

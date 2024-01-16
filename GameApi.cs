@@ -47,7 +47,7 @@ static partial class GameApi
                 return Results.NotFound();
             }
 
-            if (game.Status != GameStatus.InProgress)
+            if (game!.Status != GameStatus.InProgress)
             {
                 return Results.Forbid();
             }

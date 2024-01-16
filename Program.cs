@@ -1,9 +1,13 @@
+using System.Diagnostics;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<GameRepository>();
+builder.Services.AddSingleton<GameFactory>();
+builder.Services.AddHostedService<GameCollectorWorker>();
+builder.Host.UseConsoleLifetime();
 builder.Services.AddCors();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -12,8 +16,14 @@ builder.Services.ConfigureHttpJsonOptions(options =>
         CardSerializerContext.Default
     );
 });
-builder.Host.UseConsoleLifetime
 var app = builder.Build();
+
+app.Services.GetRequiredService<IHostApplicationLifetime>()
+    .ApplicationStopping.Register(() =>
+    {
+        var repo = app.Services.GetRequiredService<GameRepository>();
+        repo.EndAllConnections();
+    });
 
 app.UseWebSockets();
 app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
@@ -34,6 +44,8 @@ app.Use(async (HttpContext context, RequestDelegate next) =>
             return;
         }
 
+        Debug.Assert(game != null);
+
         if (game.Status != GameStatus.WaitingForPlayers || game.Players.Count >= 4)
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
@@ -48,13 +60,7 @@ app.Use(async (HttpContext context, RequestDelegate next) =>
 
         var websocket = await context.WebSockets.AcceptWebSocketAsync();
         var player = new Player(game, websocket, name!);
-        if (game.Players.Count == 0)
-        {
-            game.Host = player;
-        }
-
-        game.Players.Add(player);
-        await game.BroadcastPlayerListChanged();
+        await game.AddPlayer(player);
 
         var log = app.Services.GetRequiredService<ILogger<Program>>();
         await player.ListeningLoop(log);

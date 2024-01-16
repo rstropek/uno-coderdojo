@@ -1,10 +1,10 @@
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Text.Json.Serialization.Metadata;
 
-class Game(string id)
+class Game
 {
-    public event NotifyCollectionChangedEventHandler? CollectionChanged;
+    private static readonly char[] vowels = ['a', 'e', 'i', 'o', 'u'];
+    private static readonly char[] consonants = [ 'b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l',
+                'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'y', 'z' ];
 
     private async Task Broadcast<T>(T message, JsonTypeInfo<T> type)
     {
@@ -14,9 +14,26 @@ class Game(string id)
         }
     }
 
+    private static string CreateGameName()
+    {
+        return string.Create(6, (object)null!, (buffer, _) =>
+        {
+            for (var i = 0; i < buffer.Length; i++)
+            {
+                buffer[i] = i % 2 == 0
+                    ? vowels[Random.Shared.Next(vowels.Length)]
+                    : consonants[Random.Shared.Next(consonants.Length)];
+            }
+        });
+    }
+
+    private readonly object gameWriteLock = new();
+
+    private readonly List<Player> PlayersList = [];
+
     public Cards? StackOfCards { get; private set; }
 
-    public Stack<Card>? DiscardPile { get; private set; }
+    public Cards? DiscardPile { get; private set; }
 
     public Direction Direction { get; private set; } = Direction.Up;
 
@@ -24,17 +41,12 @@ class Game(string id)
 
     public Player? CurrentPlayer { get; private set; }
 
-    private readonly object currentPlayerWriteLockObject = new();
-
     public Player? Host { get; private set; }
 
-    private readonly List<Player> PlayersList = [];
 
     public IReadOnlyList<Player> Players => PlayersList;
 
-    private readonly object playersWriteLockObject = new();
-
-    public string Id { get; } = id;
+    public string Id { get; } = CreateGameName();
 
     public async Task BroadcastStatus()
     {
@@ -62,33 +74,43 @@ class Game(string id)
         await Broadcast(msg, MessagesSerializerContext.Default.PublishMessage);
     }
 
+    private void MoveToNextPlayer()
+    {
+        if (Players.Count == 0 || CurrentPlayer == null)
+        {
+            return;
+        }
+
+        var nextPlayerIndex = (PlayersList.IndexOf(CurrentPlayer) + (int)Direction) % Players.Count;
+        CurrentPlayer = Players[nextPlayerIndex];
+    }
+
     public async Task RemovePlayer(ILogger log, Player playerToRemove)
     {
-        lock (playersWriteLockObject)
+        lock (gameWriteLock)
         {
-            if (PlayersList.Remove(playerToRemove))
+            if (PlayersList.Contains(playerToRemove))
             {
-                lock (currentPlayerWriteLockObject)
-                {
-                    if (CurrentPlayer == playerToRemove && Players.Count > 0)
-                    {
-                        CurrentPlayer = Players[(PlayersList.IndexOf(playerToRemove) + (int)Game.Direction) % Game.Players.Count];
-                    }
-                }
-
-                log.LogInformation("Removed player {Name} ({PlayerId})", Name, PlayerId);
-                await Game.BroadcastPlayerListChanged();
-                if (Game.Status == GameStatus.InProgress)
-                {
-                    await Game.BroadcastStatus();
-                }
+                if (CurrentPlayer == playerToRemove) { MoveToNextPlayer(); }
+                PlayersList.Remove(playerToRemove);
+                LogRemovedPlayer(log, playerToRemove.Name, playerToRemove.PlayerId);
             }
-
-            if (Socket.State == WebSocketState.Open)
+            else
             {
-                await Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+                // This should never happen -> warning
+                LogPlayerNotFound(log, playerToRemove.Name, playerToRemove.PlayerId);
             }
         }
+
+        // Notify all players that the player list has changed
+        await BroadcastPlayerListChanged();
+        if (Status == GameStatus.InProgress) { await BroadcastStatus(); }
     }
+
+    [LoggerMessage(LogLevel.Information, "Removed player {Name} ({PlayerId})", EventName = "RemovedPlayer")]
+    public static partial void LogRemovedPlayer(ILogger logger, string name, string playerId);
+
+    [LoggerMessage(LogLevel.Warning, "Could not find player {Name} ({PlayerId}) to remove", EventName = "PlayerNotFound")]
+    public static partial void LogPlayerNotFound(ILogger logger, string name, string playerId);
 
 }

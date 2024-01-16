@@ -1,32 +1,14 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 
-class GameRepository
+partial class GameRepository(ILogger<GameRepository> logger)
 {
-    private static readonly char[] vowels = ['a', 'e', 'i', 'o', 'u'];
-    private static readonly char[] consonants = [ 'b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l',
-                'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'y', 'z' ];
-
     private readonly ConcurrentDictionary<string, Game> Games = [];
-
-    private static string CreateGameName()
-    {
-        return string.Create(6, (object)null!, (buffer, _) =>
-        {
-            for (var i = 0; i < buffer.Length; i++)
-            {
-                buffer[i] = i % 2 == 0
-                    ? vowels[Random.Shared.Next(vowels.Length)]
-                    : consonants[Random.Shared.Next(consonants.Length)];
-            }
-        });
-    }
 
     public Game CreateGame()
     {
-        var game = new Game(CreateGameName());
+        var game = new Game();
         Debug.Assert(Games.TryAdd(game.Id, game));
         return game;
     }
@@ -34,6 +16,23 @@ class GameRepository
     public bool TryGetGame(string id, out Game? game) => Games.TryGetValue(id, out game);
 
     public bool TryRemove(string id) => Games.TryRemove(id, out _);
+
+    public void CollectAbandonedGames()
+    {
+        foreach (var game in Games.Values)
+        {
+            if (game.Players.Count == 0)
+            {
+                if (TryRemove(game.Id))
+                {
+                    LogPlayerNotFound(logger, game.Id);
+                }
+            }
+        }
+    }
+
+    [LoggerMessage(LogLevel.Warning, "Removed game {gameId} because it was abandoned", EventName = "RemovedGame")]
+    public static partial void LogPlayerNotFound(ILogger logger, string gameId);
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<GameStatus>))]

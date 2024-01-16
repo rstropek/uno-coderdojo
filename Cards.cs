@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json.Serialization;
 
 [JsonConverter(typeof(JsonStringEnumConverter<CardType>))]
@@ -13,11 +14,12 @@ enum CardType
     Seven,
     Eight,
     Nine,
-    Skip,
-    Reverse,
-    DrawTwo,
-    Wild,
-    WildDrawFour
+    // To keep things simple, we current do not support special cards.
+    // Skip,
+    // Reverse,
+    // DrawTwo,
+    // Wild,
+    // WildDrawFour
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<CardColor>))]
@@ -32,11 +34,12 @@ enum CardColor
 
 class Cards
 {
-    public Stack<Card> Deck { get; } = [];
+    private ConcurrentStack<Card> Deck { get; } = [];
 
     public Cards()
     {
-        var deck = new List<Card>();
+        var deck = new Card[10 * 4 + 9 * 4];
+        var ix = 0;
         for (var i = 0; i < 2; i++)
         {
             for (var ct = 0; ct <= (int)CardType.Nine; ct++)
@@ -44,17 +47,12 @@ class Cards
                 if (i == 1 && ct == (int)CardType.Zero) { continue; }
                 for (var cc = 0; cc <= (int)CardColor.Blue; cc++)
                 {
-                    deck.Add(new Card((CardType)ct, (CardColor)cc));
+                    deck[ix++] = new((CardType)ct, (CardColor)cc);
                 }
             }
         }
 
         // TODO: Add support for special cards
-        // for (var i = 0; i < 4; i++)
-        // {
-        //     Deck.Add(new Card(CardType.Wild, CardColor.Wild));
-        //     Deck.Add(new Card(CardType.WildDrawFour, CardColor.Wild));
-        // }
 
         // Shuffle
         for (var i = 0; i < 20000; i++)
@@ -64,10 +62,12 @@ class Cards
             (deck[a], deck[b]) = (deck[b], deck[a]);
         }
 
-        foreach (var card in deck) { Deck.Push(card); }
+        Deck.PushRange(deck);
     }
 
-    public Card Draw() => Deck.Pop();
+    public Card Draw() => Deck.TryPop(out var card) ? card : throw new InvalidOperationException("No cards left in deck");
+
+    public bool IsEmpty => Deck.IsEmpty;
 }
 
 record Card(CardType Type, CardColor Color)
@@ -86,11 +86,11 @@ record Card(CardType Type, CardColor Color)
             CardType.Seven => "7",
             CardType.Eight => "8",
             CardType.Nine => "9",
-            CardType.Skip => "Aussetzen",
-            CardType.Reverse => "Umdrehen",
-            CardType.DrawTwo => "Nimm Zwei",
-            CardType.Wild => "Wild",
-            CardType.WildDrawFour => "Nimm Vier",
+            // CardType.Skip => "Aussetzen",
+            // CardType.Reverse => "Umdrehen",
+            // CardType.DrawTwo => "Nimm Zwei",
+            // CardType.Wild => "Wild",
+            // CardType.WildDrawFour => "Nimm Vier",
             _ => throw new NotImplementedException()
         };
     }

@@ -49,24 +49,8 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
 
     private async Task RemovePlayer(ILogger log, GameRepository repo)
     {
-        if (Game.Players.Count == 0 && repo.TryRemove(Game.Id))
-        {
-            log.LogInformation("Removed game {GameId} because no players are left", Game.Id);
-        }
-        else if (Game.Players.Remove(this))
-        {
-            if (Game.CurrentPlayer == this && Game.Players.Count > 0)
-            {
-                Game.CurrentPlayer = Game.Players[(Game.Players.IndexOf(this) + (int)Game.Direction) % Game.Players.Count];
-            }
-
-            log.LogInformation("Removed player {Name} ({PlayerId})", Name, PlayerId);
-            await Game.BroadcastPlayerListChanged();
-            if (Game.Status == GameStatus.InProgress) {
-                await Game.BroadcastStatus();
-            }
-        }
-
+        await Game.RemovePlayer(log, this);
+        repo.CollectAbandonedGames();
         if (Socket.State == WebSocketState.Open)
         {
             await Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);

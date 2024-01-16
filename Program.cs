@@ -3,7 +3,7 @@ using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddSingleton(new GameRepository());
+builder.Services.AddSingleton<GameRepository>();
 builder.Services.AddCors();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -12,6 +12,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
         CardSerializerContext.Default
     );
 });
+builder.Host.UseConsoleLifetime
 var app = builder.Build();
 
 app.UseWebSockets();

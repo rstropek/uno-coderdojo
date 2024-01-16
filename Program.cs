@@ -3,6 +3,7 @@ using System.Text.Json.Serialization.Metadata;
 using System.Text.RegularExpressions;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddSingleton(new GameRepository());
 builder.Services.AddCors();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -17,48 +18,16 @@ app.UseWebSockets();
 app.UseCors(policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 
 app.MapGet("/", () => "Hello World!");
-
-app.MapPost("/games", (ILogger<Program> log) =>
-{
-    var game = GameRepository.CreateGame();
-
-    log.LogInformation("Created game {GameId}", game.Id);
-    return Results.Created($"/games/{game.Id}", game.Id);
-});
-
-app.MapGet("/games/{gameId}", (string gameId) => 
-{
-    if (!GameRepository.Games.TryGetValue(gameId, out var game))
-    {
-        return Results.NotFound();
-    }
-
-    return Results.Ok();
-});
-
-app.MapPost("/games/{gameId}/broadcastStatus", async (string gameId) =>
-{
-    if (!GameRepository.Games.TryGetValue(gameId, out var game))
-    {
-        return Results.NotFound();
-    }
-
-    if (game.Status != GameStatus.InProgress)
-    {
-        return Results.Forbid();
-    }
-
-    await game.BroadcastStatus();
-
-    return Results.Ok();
-});
+app.MapGameApi();
 
 app.Use(async (HttpContext context, RequestDelegate next) =>
 {
+    var repository = context.RequestServices.GetRequiredService<GameRepository>();
+
     var match = RegularExpressions.JoinPath().Match(context.Request.Path);
     if (match.Success && context.WebSockets.IsWebSocketRequest)
     {
-        if (!GameRepository.Games.TryGetValue(match.Groups[1].Value, out Game? game))
+        if (!repository.TryGetGame(match.Groups[1].Value, out Game? game))
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;

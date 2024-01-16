@@ -10,7 +10,7 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
     public Player(Game Game, WebSocket Socket, string Name)
         : this(Game, Socket, Name, [], 0) { }
 
-    public async Task ListeningLoop(ILogger log)
+    public async Task ListeningLoop(ILogger log, GameRepository repo)
     {
         var cts = new CancellationTokenSource();
         _ = Task.Run(async () =>
@@ -21,7 +21,7 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
                 if (Socket.State != WebSocketState.Open)
                 {
                     cts.Cancel();
-                    await RemovePlayer(log);
+                    await RemovePlayer(log, repo);
                     return;
                 }
 
@@ -43,13 +43,13 @@ record Player(Game Game, WebSocket Socket, string Name, List<Card> Hand, int Sco
             catch (OperationCanceledException) { }
         }
 
-        await RemovePlayer(log);
+        await RemovePlayer(log, repo);
         log.LogInformation("Listening loop for {Name} ({PlayerId}) has ended", Name, PlayerId);
     }
 
-    private async Task RemovePlayer(ILogger log)
+    private async Task RemovePlayer(ILogger log, GameRepository repo)
     {
-        if (Game.Players.Count == 0 && GameRepository.Games.Remove(Game.Id))
+        if (Game.Players.Count == 0 && repo.TryRemove(Game.Id))
         {
             log.LogInformation("Removed game {GameId} because no players are left", Game.Id);
         }

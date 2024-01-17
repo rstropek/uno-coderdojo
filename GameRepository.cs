@@ -39,7 +39,7 @@ partial class GameRepository(ILogger<GameRepository> logger, GameFactory gameFac
         }
     }
 
-    [LoggerMessage(LogLevel.Warning, "Removed game {gameId} because it was abandoned", EventName = "RemovedGame")]
+    [LoggerMessage(LogLevel.Information, "Removed game {gameId} because it was abandoned", EventName = "RemovedGame")]
     public static partial void LogPlayerNotFound(ILogger logger, string gameId);
 }
 

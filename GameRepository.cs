@@ -9,7 +9,8 @@ partial class GameRepository(ILogger<GameRepository> logger, GameFactory gameFac
     public Game CreateGame()
     {
         var game = gameFactory.CreateGame();
-        Debug.Assert(Games.TryAdd(game.Id, game));
+        var success = Games.TryAdd(game.Id, game);
+        Debug.Assert(success);
         return game;
     }
 

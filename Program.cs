@@ -38,6 +38,8 @@ app.Use(async (HttpContext context, RequestDelegate next) =>
     var match = RegularExpressions.JoinPath().Match(context.Request.Path);
     if (match.Success && context.WebSockets.IsWebSocketRequest)
     {
+        var log = app.Services.GetRequiredService<ILogger<Program>>();
+
         if (!repository.TryGetGame(match.Groups[1].Value, out Game? game))
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
@@ -62,7 +64,6 @@ app.Use(async (HttpContext context, RequestDelegate next) =>
         var player = new Player(game, websocket, name!);
         await game.AddPlayer(player);
 
-        var log = app.Services.GetRequiredService<ILogger<Program>>();
         await player.ListeningLoop(log);
         return;
     }
